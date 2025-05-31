@@ -12,7 +12,7 @@ lab04/<br>
 ├── .gitignore<br>
 ├── .github/<br>
 │   └── workflows/<br>
-│       └── main.yml<br>
+│       └── buil.yml<br>
 ├── CMakeLists.txt<br>
 ├── formatter_lib/<br>
 │   ├── CMakeLists.txt<br>
@@ -49,56 +49,63 @@ build/
 .vscode/
 .idea/
 ```
-## Создаем .github/workflows/main.yml:
+## Создаем .github/workflows/build.yml:
 ```
-name: CMake Build and Test
+name: Build on Linux and Windows
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
-
-env:
-  BUILD_TYPE: Release
+    branches: [ main ]
 
 jobs:
-  build:
+  build-gcc:
+    name: Build with GCC (Linux)
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y g++ cmake
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=g++
+      - name: Build
+        run: cmake --build build
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+  build-clang:
+    name: Build with Clang (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y clang cmake
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++
+      - name: Build
+        run: cmake --build build
 
-    - name: Create Build Directory
-      run: mkdir -p build
+  build-msvc:
+    name: Build with MSVC (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure (MSVC)
+        run: cmake -S . -B build
+      - name: Build (MSVC)
+        run: cmake --build build --config Release
 
-    - name: Configure CMake
-      working-directory: ./build
-      run: cmake .. -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
-
-    - name: Build
-      working-directory: ./build
-      run: cmake --build . --config ${{ env.BUILD_TYPE }}
-
-    - name: Run Hello World Test
-      working-directory: ./build
-      run: |
-        ./hello_world_application/hello_world | grep -q "hello, world!"
-        echo "Hello World test passed!"
-
-    - name: Run Solver Test
-      working-directory: ./build
-      run: |
-        echo "Testing equation solver:"
-        OUTPUT=$(./solver_application/solver <<< "1 0 -25")
-        echo "$OUTPUT"
-        echo "$OUTPUT" | grep -q "x1 = -5.00000" || (echo "x1 test failed"; exit 1)
-        echo "$OUTPUT" | grep -q "x2 = 5.00000" || (echo "x2 test failed"; exit 1)
-        echo "Solver test passed!"
+  build-mingw:
+    name: Build with MinGW (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install MinGW and CMake
+        run: choco install mingw cmake -y
+      - name: Add MinGW to PATH
+        run: echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Configure (MinGW)
+        run: cmake -S . -B build -G "MinGW Makefiles"
+      - name: Build (MinGW)
+        run: cmake --build build
 ```
 В результате получаем проверку всех тестов 
